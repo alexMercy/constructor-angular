@@ -13,6 +13,7 @@ import {
   ViewContainerRef,
 } from '@angular/core';
 import {
+  AbstractControl,
   FormBuilder,
   FormControl,
   FormGroup,
@@ -26,6 +27,7 @@ import { descript } from '../../../services/descriptor';
 interface Field {
   name: string;
   validators?: string;
+  formValidators?: { name: string; errorMessage: string; code: string }[];
   dependsOn?: string[];
   depsLogic?: string[];
 }
@@ -81,15 +83,21 @@ export class FormUI implements AfterViewInit {
   //#region METHODS
   private toFormGroup(fields: Field[]): FormGroup {
     const group: Record<string, FormControl> = {};
-
+    const formCustomValudators: ValidatorFn[] = [];
     fields.forEach((field) => {
       const validators = this.descriptValidators(field.validators);
       group[field.name] = new FormControl(null, {
         validators,
       });
+
+      const formValidator = this.descriptFormValidators(field.formValidators);
+      if (formValidator) {
+        formCustomValudators.push(...formValidator);
+      }
     });
     const fg = this.fb.group(group);
-    return this.fb.group(group);
+    fg.setValidators(formCustomValudators);
+    return fg;
   }
 
   private addDependcies(fields: Field[], form: FormGroup) {
@@ -167,6 +175,47 @@ export class FormUI implements AfterViewInit {
         }
       }
     });
+  }
+
+  private descriptFormValidators(
+    formValidators?: { name: string; errorMessage: string; code: string }[]
+  ): ValidatorFn[] | undefined {
+    if (!formValidators) return;
+    const vfns: ValidatorFn[] = formValidators.map(
+      ({ name, code }) =>
+        (form: AbstractControl<any, any, any>) => {
+          let result: any;
+          const commands: string[][] = code
+            .split(';')
+            .map((row) => row.split(' '));
+
+          let i = 0;
+          while (commands[i]) {
+            const [command, ...args] = commands[i];
+            switch (command) {
+              case 'jrgt':
+                const isGreate =
+                  +form.get(args[0])!.value > +form.get(args[1])!.value;
+                if (isGreate) {
+                  i += +args[2];
+                } else {
+                  i += 1;
+                }
+                break;
+
+              case 'setres':
+                result = args[0];
+                i = Infinity;
+                break;
+              default:
+                throw new Error('wrong command');
+            }
+          }
+          return result ? { [name]: { value: form.value } } : null;
+        }
+    );
+
+    return vfns;
   }
 
   private descriptValidators(validators?: string): ValidatorFn[] | undefined {

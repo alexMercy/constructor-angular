@@ -91,10 +91,9 @@ const mockData2: mockI[] = [
               errorMessage: 'value age not in a range',
               code:
                 'jrgt age minAge 2;' +
-                'setres false;' +
+                'setres error;' +
                 'jrgt maxAge age 2;' +
-                'setres false;' +
-                'setres true',
+                'setres error',
             },
           ],
         },
