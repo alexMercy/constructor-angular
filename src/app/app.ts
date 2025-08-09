@@ -1,12 +1,36 @@
-import { Component, signal } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import {
+  AfterViewInit,
+  Component,
+  signal,
+  viewChild,
+  ViewContainerRef,
+} from '@angular/core';
+import { exampleData } from '../services/descriptor';
+import { Container } from '../shared/ui/container/container';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet],
-  templateUrl: './app.html',
-  styleUrl: './app.scss'
+  template: `
+    <div
+      style="display: flex; flex-direction: column; gap: 30px; border: 1px solid black"
+    >
+      <a>app</a>
+      <ng-container #vcr />
+      <a>app end</a>
+    </div>
+  `,
+  styleUrl: './app.scss',
 })
-export class App {
+export class App implements AfterViewInit {
+  private vcr = viewChild.required('vcr', { read: ViewContainerRef });
   protected readonly title = signal('constructor-app');
+
+  ngAfterViewInit(): void {
+    console.log(this.vcr());
+
+    const ref = this.vcr().createComponent(Container);
+    ref.setInput('components', exampleData);
+    ref.setInput('styles', { border: '1px solid yellow' });
+    ref.changeDetectorRef.detectChanges();
+  }
 }
