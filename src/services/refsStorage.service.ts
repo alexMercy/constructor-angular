@@ -2,7 +2,7 @@ import { ComponentRef, computed, Injectable, signal } from '@angular/core';
 
 interface RefItem {
   ref: ComponentRef<any>;
-  title: string;
+  title: string; //TODO: rewrite to uuids or componentIds
   source: Symbol;
 }
 
