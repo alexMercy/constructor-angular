@@ -41,9 +41,9 @@ export class InputUI implements OnInit, ControlValueAccessor {
   //#endregion
 
   //#region CVA
-  public value: number | null = null;
-  public onChange = (value: number | null) => {};
-  public onTouched = () => {};
+  protected value: number | null = null;
+  private onChange = (value: number | null) => {};
+  private onTouched = () => {};
   //#endregion
 
   //#region OUTPUTS

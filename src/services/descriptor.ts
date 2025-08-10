@@ -197,6 +197,17 @@ const mockData2: mockI[] = [
             click: 'toggleField minAge',
           },
         },
+        {
+          component: 'ButtonUI',
+          title: 'DisableEnableMaxAge',
+          inputs: {
+            label: 'Disable/Enable maxAge',
+            type: 'button',
+          },
+          outputs: {
+            click: 'toggleField maxAge',
+          },
+        },
       ],
     },
   },

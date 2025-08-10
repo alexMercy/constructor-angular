@@ -24,6 +24,11 @@ import {
 } from '@angular/forms';
 import { combineLatest, skip, startWith } from 'rxjs';
 import { descript } from '../../../services/descriptor';
+import {
+  Commands,
+  Contexts,
+  IcCompilerService,
+} from '../../../services/ic.compiler';
 import { RefsStorageService } from '../../../services/refsStorage.service';
 import { FORM_CONTROL_NAME_TOKEN } from '../../lib/injectionTokens/injectionTokens';
 
@@ -48,7 +53,7 @@ interface Field {
 })
 export class FormUI implements AfterViewInit, OnDestroy {
   private componentId = Symbol();
-
+  private icCompiler = inject(IcCompilerService);
   private fb = inject(FormBuilder);
   private vcr = viewChild.required('vcr', { read: ViewContainerRef });
 
@@ -57,10 +62,6 @@ export class FormUI implements AfterViewInit, OnDestroy {
   //#region INPUTS
   public fields = input<Field[]>();
   public components = input<any[]>();
-  //#endregion
-
-  //#region STATES
-  private valueChangesDepsSources = new Set<string>();
   //#endregion
 
   //#region OUTPUTS
@@ -111,8 +112,6 @@ export class FormUI implements AfterViewInit, OnDestroy {
     fields
       .filter((field) => field.dependsOn && field.depsLogic)
       .forEach((field) => {
-        const control = form.controls[field.name];
-
         const dependsOn = field.dependsOn!;
         const depsLogic = field.depsLogic!;
         const dependsObserverList = dependsOn.map((controlName) =>
@@ -120,67 +119,34 @@ export class FormUI implements AfterViewInit, OnDestroy {
         );
         combineLatest(dependsObserverList)
           .pipe(skip(1))
-          .subscribe((formValues) => {
-            const object: Record<string, any> = {
-              [field.name]: control.value,
-            };
-            formValues.forEach((value, idx) => {
-              object[dependsOn[idx]] = value;
-            });
-            this.descriptDepsLogic(depsLogic, object, form);
+          .subscribe(() => {
+            this.descriptDepsLogic(depsLogic, form);
           });
       });
   }
 
-  private setValueFormDeps(form: FormGroup, controlName: string, value: any) {
-    this.valueChangesDepsSources.add(controlName);
-    form.controls[controlName].setValue(value);
-    this.valueChangesDepsSources.delete(controlName);
-  }
-
-  private descriptDepsLogic(
-    depsLogic: string[],
-    values: Record<string, any>,
-    form: FormGroup
-  ) {
+  private descriptDepsLogic(depsLogic: string[], form: FormGroup) {
     depsLogic.forEach((ic) => {
-      const commands: string[][] = ic.split(';').map((row) => row.split(' '));
+      const contextPack = Contexts.dependencies;
+      const commands: string[][] = this.icCompiler.getRawCommands(ic);
+
+      const commandsPack = this.icCompiler.commandContext[contextPack](
+        form,
+        this.refsStorage.refsList()
+      );
 
       let i = 0;
       while (commands[i]) {
-        const [command, ...args] = commands[i];
-        switch (command) {
-          case 'jrgt':
-            const isGreate = +values[args[0]] >= +values[args[1]];
-            if (isGreate) {
-              i += +args[2];
-            } else {
-              i += 1;
-            }
-            break;
-
-          case 's':
-            if (!this.valueChangesDepsSources.has(args[0])) {
-              this.setValueFormDeps(form, args[0], values[args[1]]);
-            }
-            i += 1;
-            break;
-
-          case 'sp':
-            const spRef = this.refsStorage.refsList().find(({ ref }) => {
-              return (
-                ref.injector.get(FORM_CONTROL_NAME_TOKEN, null) === args[0]
-              );
-            });
-            if (spRef) {
-              spRef.ref.setInput(args[1], values[args[2]]);
-            }
-            i += 1;
-            break;
-
-          default:
-            throw new Error('wrong command');
+        const [command, ...args] = commands[i] as [Commands, ...args: any[]];
+        const isAllowedCommand = this.icCompiler.isAllowedCommand(
+          command,
+          contextPack
+        );
+        if (!isAllowedCommand) {
+          throw new Error('wrong command');
         }
+        const result = commandsPack[command](...args, { rowIdx: i });
+        i = result.rowIdx;
       }
     });
   }
@@ -192,32 +158,31 @@ export class FormUI implements AfterViewInit, OnDestroy {
     const vfns: ValidatorFn[] = formValidators.map(
       ({ name, code }) =>
         (form: AbstractControl<any, any, any>) => {
-          let result: any;
-          const commands: string[][] = code
-            .split(';')
-            .map((row) => row.split(' '));
+          const contextPack = Contexts.validators;
+          const commands: string[][] = this.icCompiler.getRawCommands(code);
 
+          const commandsPack = this.icCompiler.commandContext[contextPack](
+            form as FormGroup
+          );
+          let result: any;
           let i = 0;
           while (commands[i]) {
-            const [command, ...args] = commands[i];
-            switch (command) {
-              case 'jrgt':
-                const isGreate =
-                  +form.get(args[0])!.value > +form.get(args[1])!.value;
-                if (isGreate) {
-                  i += +args[2];
-                } else {
-                  i += 1;
-                }
-                break;
-
-              case 'setres':
-                result = args[0];
-                i = Infinity;
-                break;
-              default:
-                throw new Error('wrong command');
+            const [command, ...args] = commands[i] as [
+              Commands,
+              ...args: any[]
+            ];
+            const isAllowedCommand = this.icCompiler.isAllowedCommand(
+              command,
+              contextPack
+            );
+            if (!isAllowedCommand) {
+              throw new Error('wrong command');
             }
+            const iterationResult = commandsPack[command](...args, {
+              rowIdx: i,
+            });
+            i = iterationResult.rowIdx;
+            result = iterationResult.result;
           }
           return result ? { [name]: { value: form.value } } : null;
         }
