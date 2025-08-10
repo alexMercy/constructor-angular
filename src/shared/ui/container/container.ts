@@ -2,19 +2,20 @@ import { NgStyle } from '@angular/common';
 import {
   AfterViewInit,
   Component,
-  ComponentRef,
   computed,
   inject,
+  Injector,
   input,
   Optional,
   outputBinding,
-  signal,
   SkipSelf,
   viewChild,
   ViewContainerRef,
 } from '@angular/core';
 import { ControlContainer, ReactiveFormsModule } from '@angular/forms';
 import { descript } from '../../../services/descriptor';
+import { RefsStorageService } from '../../../services/refsStorage.service';
+import { FORM_CONTROL_NAME_TOKEN } from '../../lib/injectionTokens/injectionTokens';
 
 const defaultStyleClass = 'container-base';
 
@@ -38,6 +39,9 @@ const defaultStyleClass = 'container-base';
   ],
 })
 export class Container implements AfterViewInit {
+  private componentId = Symbol();
+
+  private refsStorage = inject(RefsStorageService);
   private cc = inject(ControlContainer, { optional: true, skipSelf: true });
   private vcr = viewChild.required('vcr', { read: ViewContainerRef });
 
@@ -52,10 +56,6 @@ export class Container implements AfterViewInit {
     const styleClass = this.styleClass();
     return `${defaultStyleClass} ${styleClass}`;
   });
-
-  private formComponentRefs = signal<
-    { ref: ComponentRef<any>; formControlName: string | undefined }[]
-  >([]);
   //#endregion
 
   //#region HOOKS
@@ -89,7 +89,7 @@ export class Container implements AfterViewInit {
                   return this.cc?.control;
                 case 'refs':
                 default:
-                  return this.formComponentRefs();
+                  return this.refsStorage.refsList();
               }
             });
 
@@ -99,8 +99,26 @@ export class Container implements AfterViewInit {
         }
       }
 
+      const controlContainer = this.vcr().injector.get(ControlContainer);
+
+      const inputKeys = props.inputs?.map(([key]) => key);
+
+      const controlNameIdx =
+        inputKeys?.findIndex((key) => key === 'formControlName') ?? -1;
+
+      const controlName =
+        controlNameIdx > -1
+          ? (props.inputs?.[controlNameIdx][1]() as string)
+          : undefined;
+
       const ref = this.vcr().createComponent(component, {
         bindings,
+        injector: Injector.create({
+          providers: [
+            { provide: ControlContainer, useValue: controlContainer },
+            { provide: FORM_CONTROL_NAME_TOKEN, useValue: controlName },
+          ],
+        }),
       });
       if (props.inputs) {
         for (const [key, value] of props.inputs) {
@@ -129,10 +147,12 @@ export class Container implements AfterViewInit {
         }
       }
       ref.changeDetectorRef.detectChanges();
-      this.formComponentRefs.update((prev) => [
-        ...prev,
-        { ref, formControlName: ref.instance.formControlName?.() },
-      ]);
+
+      this.refsStorage.addRefsInList({
+        ref,
+        title: props.title,
+        source: this.componentId,
+      });
     });
   }
 }

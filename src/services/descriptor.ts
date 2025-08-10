@@ -21,18 +21,24 @@ const buttonFns: Record<string, any> = {
       }
 
       const status = control.status;
-      status === 'DISABLED' ? control.enable() : control.disable();
+      if (status === 'DISABLED') {
+        control.enable();
+      } else {
+        control.reset();
+        control.disable();
+      }
     },
   },
 };
 
 interface mockI {
   component: string;
+  title: string;
   inputs?: Record<string, any>;
   outputs?: Record<string, string>;
 }
 
-const mockData: mockI[] = [
+const mockData: any[] = [
   {
     component: 'ButtonUI',
     inputs: {
@@ -87,6 +93,7 @@ const mockData: mockI[] = [
 const mockData2: mockI[] = [
   {
     component: 'FormUI',
+    title: 'form',
     inputs: {
       fields: [
         {
@@ -136,12 +143,14 @@ const mockData2: mockI[] = [
       components: [
         {
           component: 'Container',
+          title: 'minAgeContainer',
           inputs: {
             styles: { border: '1px solid green' },
             styleClass: 'aboba',
             components: [
               {
                 component: 'InputUI',
+                title: 'minAge',
                 inputs: {
                   formControlName: 'minAge',
                   type: 'number',
@@ -153,6 +162,7 @@ const mockData2: mockI[] = [
         },
         {
           component: 'InputUI',
+          title: 'age',
           inputs: {
             formControlName: 'age',
             type: 'number',
@@ -162,6 +172,7 @@ const mockData2: mockI[] = [
 
         {
           component: 'InputUI',
+          title: 'maxAge',
           inputs: {
             formControlName: 'maxAge',
             type: 'number',
@@ -170,12 +181,14 @@ const mockData2: mockI[] = [
         },
         {
           component: 'ButtonUI',
+          title: 'submitButton',
           inputs: {
             label: 'Submit',
           },
         },
         {
           component: 'ButtonUI',
+          title: 'DisableEnableMinAge',
           inputs: {
             label: 'Disable/Enable minAge',
             type: 'button',
@@ -200,7 +213,7 @@ const componentsMap: Record<string, Type<any>> = {
 
 export function descript(data: mockI[]): ComponentProps[] {
   return data.map(
-    ({ component: _component, inputs: _inputs, outputs: _outputs }) => {
+    ({ component: _component, inputs: _inputs, outputs: _outputs, title }) => {
       const component = componentsMap[_component];
       const inputs: ComponentProps['inputs'] =
         _inputs &&
@@ -218,6 +231,7 @@ export function descript(data: mockI[]): ComponentProps[] {
 
       return {
         component,
+        title,
         inputs,
         outputs,
       };

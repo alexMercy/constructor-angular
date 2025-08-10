@@ -2,18 +2,19 @@ import {
   AfterViewInit,
   Binding,
   Component,
-  ComponentRef,
   computed,
   effect,
   inject,
+  Injector,
   input,
+  OnDestroy,
   outputBinding,
-  signal,
   viewChild,
   ViewContainerRef,
 } from '@angular/core';
 import {
   AbstractControl,
+  ControlContainer,
   FormBuilder,
   FormControl,
   FormGroup,
@@ -23,6 +24,8 @@ import {
 } from '@angular/forms';
 import { combineLatest, skip, startWith } from 'rxjs';
 import { descript } from '../../../services/descriptor';
+import { RefsStorageService } from '../../../services/refsStorage.service';
+import { FORM_CONTROL_NAME_TOKEN } from '../../lib/injectionTokens/injectionTokens';
 
 interface Field {
   name: string;
@@ -43,9 +46,13 @@ interface Field {
     }
   `,
 })
-export class FormUI implements AfterViewInit {
+export class FormUI implements AfterViewInit, OnDestroy {
+  private componentId = Symbol();
+
   private fb = inject(FormBuilder);
   private vcr = viewChild.required('vcr', { read: ViewContainerRef });
+
+  private refsStorage = inject(RefsStorageService);
 
   //#region INPUTS
   public fields = input<Field[]>();
@@ -53,10 +60,6 @@ export class FormUI implements AfterViewInit {
   //#endregion
 
   //#region STATES
-  private formComponentRefs = signal<
-    { ref: ComponentRef<any>; formControlName: string | undefined }[]
-  >([]);
-
   private valueChangesDepsSources = new Set<string>();
   //#endregion
 
@@ -76,6 +79,10 @@ export class FormUI implements AfterViewInit {
   //#region HOOKS
   ngAfterViewInit(): void {
     this.initComponents();
+  }
+
+  ngOnDestroy(): void {
+    this.refsStorage.removeRefsFromList(this.componentId);
   }
   //#endregion
 
@@ -160,9 +167,11 @@ export class FormUI implements AfterViewInit {
             break;
 
           case 'sp':
-            const spRef = this.formComponentRefs().find(
-              ({ formControlName }) => formControlName === args[0]
-            );
+            const spRef = this.refsStorage.refsList().find(({ ref }) => {
+              return (
+                ref.injector.get(FORM_CONTROL_NAME_TOKEN, null) === args[0]
+              );
+            });
             if (spRef) {
               spRef.ref.setInput(args[1], values[args[2]]);
             }
@@ -285,7 +294,7 @@ export class FormUI implements AfterViewInit {
                   return this.formGroup();
                 case 'refs':
                 default:
-                  return this.formComponentRefs();
+                  return this.refsStorage.refsList();
               }
             });
 
@@ -294,16 +303,32 @@ export class FormUI implements AfterViewInit {
           bindings.push(outputBinding(key, fn));
         }
       }
+
+      const controlContainer = this.vcr().injector.get(ControlContainer);
+
+      const inputKeys = props.inputs?.map(([key]) => key);
+
+      const controlNameIdx =
+        inputKeys?.findIndex((key) => key === 'formControlName') ?? -1;
+
+      const controlName =
+        controlNameIdx > -1
+          ? (props.inputs?.[controlNameIdx][1]() as string)
+          : undefined;
+
       const ref = this.vcr().createComponent(props.component, {
         bindings,
+        injector: Injector.create({
+          providers: [
+            { provide: ControlContainer, useValue: controlContainer },
+            { provide: FORM_CONTROL_NAME_TOKEN, useValue: controlName },
+          ],
+        }),
       });
-
-      let formControlName = '';
 
       if (props.inputs) {
         for (const [key, value] of props.inputs) {
           if (key === 'formControlName') {
-            formControlName = value() as string;
             const control = this.formGroup()?.get(value() as string);
             const instance = ref.instance;
             if (!control) {
@@ -330,16 +355,23 @@ export class FormUI implements AfterViewInit {
 
       ref.changeDetectorRef.detectChanges();
 
-      this.formComponentRefs.update((prev) => [
-        ...prev,
-        { ref, formControlName },
-      ]);
+      this.refsStorage.addRefsInList({
+        ref,
+        title: props.title,
+        source: this.componentId,
+      });
     });
   }
 
   //#region EFFECTS
   private refsEffect = effect(() => {
-    console.log(this.formComponentRefs());
+    const refsList = this.refsStorage.refsList();
+    console.log(refsList);
+
+    if (refsList.length) {
+      const minAgeRef = refsList.find((item) => item.title === 'maxAge')!.ref;
+      console.log(minAgeRef.injector.get(FORM_CONTROL_NAME_TOKEN, null));
+    }
   });
   //#endregion
 
@@ -354,8 +386,13 @@ export class FormUI implements AfterViewInit {
     });
     console.log(this.formGroup());
     console.log(
+      'valid',
       this.formGroup()?.valid,
+      'errors',
       errors,
+      'value',
+      this.formGroup()?.value,
+      'getRawValue',
       this.formGroup()?.getRawValue()
     );
   }
