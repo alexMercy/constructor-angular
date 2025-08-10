@@ -27,6 +27,7 @@ const defaultStyleClass = 'button-base';
     [ariaLabel]="label()"
     [disabled]="disabled()"
     [ngStyle]="style()"
+    [type]="type()"
     (click)="click.emit()"
   >
     {{ label() }}
@@ -39,6 +40,7 @@ export class ButtonUI implements OnInit {
   public disabled = input(false);
   public loading = input(false);
   public rounded = input(false);
+  public type = input('');
   public styleClass = input('');
   public size = input<Sizes>(Sizes.md);
   public severity = input<Severity>(Severity.primary);
@@ -81,6 +83,7 @@ export class ButtonUI implements OnInit {
     const styles = {
       'border-radius': rounded,
       'background-color': severity[0],
+      display: 'block',
       color: severity[1],
       height: size[0],
       width: size[1],

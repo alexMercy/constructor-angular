@@ -1,13 +1,28 @@
 import { Type } from '@angular/core';
+import { FormGroup } from '@angular/forms';
 import { ComponentProps } from '../shared/lib/interfaces/components.interface';
 import { ButtonUI } from '../shared/ui/button/button';
 import { Container } from '../shared/ui/container/container';
 import { FormUI } from '../shared/ui/form/form';
 import { InputUI } from '../shared/ui/input/input';
 
-const buttonFns: Record<string, (event: unknown) => unknown> = {
-  logHello() {
-    console.log('hello world');
+const buttonFns: Record<string, any> = {
+  logHello: {
+    fn: () => () => {
+      console.log('hello world');
+    },
+  },
+  toggleField: {
+    deps: ['form'],
+    fn: (controlName: string) => (form: FormGroup) => (event: Event) => {
+      const control = form.get(controlName);
+      if (!control) {
+        throw new Error(`control with name ${controlName} was not found`);
+      }
+
+      const status = control.status;
+      status === 'DISABLED' ? control.enable() : control.disable();
+    },
   },
 };
 
@@ -26,7 +41,7 @@ const mockData: mockI[] = [
       rounded: 'true',
     },
     outputs: {
-      click: '{logHello}',
+      click: 'logHello',
     },
   },
   {
@@ -42,7 +57,7 @@ const mockData: mockI[] = [
             disabled: 'false',
           },
           outputs: {
-            click: '{logHello}',
+            click: 'logHello',
           },
         },
         {
@@ -58,7 +73,7 @@ const mockData: mockI[] = [
                   disabled: 'false',
                 },
                 outputs: {
-                  click: '{logHello}',
+                  click: 'logHello',
                 },
               },
             ],
@@ -120,6 +135,23 @@ const mockData2: mockI[] = [
       ],
       components: [
         {
+          component: 'Container',
+          inputs: {
+            styles: { border: '1px solid green' },
+            styleClass: 'aboba',
+            components: [
+              {
+                component: 'InputUI',
+                inputs: {
+                  formControlName: 'minAge',
+                  type: 'number',
+                  label: 'Min Age',
+                },
+              },
+            ],
+          },
+        },
+        {
           component: 'InputUI',
           inputs: {
             formControlName: 'age',
@@ -127,14 +159,7 @@ const mockData2: mockI[] = [
             label: 'Age',
           },
         },
-        {
-          component: 'InputUI',
-          inputs: {
-            formControlName: 'minAge',
-            type: 'number',
-            label: 'Min Age',
-          },
-        },
+
         {
           component: 'InputUI',
           inputs: {
@@ -147,6 +172,16 @@ const mockData2: mockI[] = [
           component: 'ButtonUI',
           inputs: {
             label: 'Submit',
+          },
+        },
+        {
+          component: 'ButtonUI',
+          inputs: {
+            label: 'Disable/Enable minAge',
+            type: 'button',
+          },
+          outputs: {
+            click: 'toggleField minAge',
           },
         },
       ],
@@ -174,10 +209,11 @@ export function descript(data: mockI[]): ComponentProps[] {
       const outputs: ComponentProps['outputs'] =
         _outputs &&
         Object.entries(_outputs).map(([key, value]) => {
-          const fnName = value.slice(1, -1);
+          const [fnName, ...args] = value.split(' ');
 
-          const fn = buttonFns[fnName];
-          return [key, fn];
+          const fnCfg = buttonFns[fnName];
+          const newFnCfg = { ...fnCfg, fn: fnCfg.fn(...args) };
+          return [key, newFnCfg];
         });
 
       return {

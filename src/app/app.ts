@@ -26,8 +26,6 @@ export class App implements AfterViewInit {
   protected readonly title = signal('constructor-app');
 
   ngAfterViewInit(): void {
-    console.log(this.vcr());
-
     const ref = this.vcr().createComponent(Container);
     ref.setInput('components', exampleData);
     ref.setInput('styles', { border: '1px solid yellow' });

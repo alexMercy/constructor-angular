@@ -1,41 +1,56 @@
-import { Component, input, OnInit } from '@angular/core';
-import { FormGroup, ReactiveFormsModule } from '@angular/forms';
+import { Component, forwardRef, input, OnInit, signal } from '@angular/core';
+import {
+  ControlValueAccessor,
+  NG_VALUE_ACCESSOR,
+  ReactiveFormsModule,
+} from '@angular/forms';
 
 @Component({
   selector: 'app-input',
   imports: [ReactiveFormsModule],
   template: `
-    @let _form = form(); @if (_form) {
-    <div [formGroup]="_form">
+    <div>
       <label>{{ label() }}</label>
       <input
         style="width: 100px;"
-        [formControlName]="formControlName()"
         [type]="type()"
         [min]="min()"
         [max]="max()"
+        [disabled]="_disabled()"
+        [value]="value"
+        (input)="onInput($event)"
       />
     </div>
-    }
   `,
+  providers: [
+    {
+      provide: NG_VALUE_ACCESSOR,
+      useExisting: forwardRef(() => InputUI),
+      multi: true,
+    },
+  ],
 })
-export class InputUI implements OnInit {
+export class InputUI implements OnInit, ControlValueAccessor {
   //#region INPUTS
   public label = input('');
-  public disabled = input(false);
   public loading = input(false);
-  public formControlName = input('');
-  public form = input<FormGroup>();
 
-  public type = input('');
+  public type = input('text');
   public min = input<number | null>(null);
   public max = input<number | null>(null);
+  //#endregion
+
+  //#region CVA
+  public value: number | null = null;
+  public onChange = (value: number | null) => {};
+  public onTouched = () => {};
   //#endregion
 
   //#region OUTPUTS
   //#endregion
 
   //#region FIELDS
+  protected _disabled = signal(false);
 
   //#endregion
 
@@ -43,17 +58,23 @@ export class InputUI implements OnInit {
   ngOnInit(): void {}
   //#endregion
 
-  // onInput(event: Event) {
-  //   const input = event.target as HTMLInputElement;
-  //   const value = parseInt(input.value, 10);
-  //   const max = this.max();
-  //   const min = this.min();
+  writeValue(val: number | null): void {
+    this.value = val;
+  }
+  registerOnChange(fn: any): void {
+    this.onChange = fn;
+  }
+  registerOnTouched(fn: any): void {
+    this.onTouched = fn;
+  }
 
-  //   if (max && value > max) {
-  //     input.value = max.toString();
-  //   }
-  //   if (min && value < min) {
-  //     input.value = min.toString();
-  //   }
-  // }
+  setDisabledState(isDisabled: boolean): void {
+    this._disabled.set(isDisabled);
+  }
+
+  onInput(event: Event) {
+    const input = event.target as HTMLInputElement;
+    this.value = input.valueAsNumber;
+    this.onChange(isNaN(this.value) ? null : this.value);
+  }
 }

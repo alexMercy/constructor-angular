@@ -45,7 +45,6 @@ interface Field {
 })
 export class FormUI implements AfterViewInit {
   private fb = inject(FormBuilder);
-
   private vcr = viewChild.required('vcr', { read: ViewContainerRef });
 
   //#region INPUTS
@@ -274,21 +273,57 @@ export class FormUI implements AfterViewInit {
       const bindings: Binding[] = [];
 
       if (props.outputs) {
-        for (const [key, value] of props.outputs) {
-          bindings.push(outputBinding(key, value));
+        for (const [key, config] of props.outputs) {
+          const { deps, fn: fnNoCtx } = config;
+          let fn;
+          if (!deps) {
+            fn = fnNoCtx();
+          } else {
+            const args = deps.map((dep) => {
+              switch (dep) {
+                case 'form':
+                  return this.formGroup();
+                case 'refs':
+                default:
+                  return this.formComponentRefs();
+              }
+            });
+
+            fn = fnNoCtx(...args);
+          }
+          bindings.push(outputBinding(key, fn));
         }
       }
-
       const ref = this.vcr().createComponent(props.component, {
         bindings,
       });
 
+      let formControlName = '';
+
       if (props.inputs) {
         for (const [key, value] of props.inputs) {
-          ref.setInput(key, value());
-          switch (key) {
-            case 'formControlName':
-              ref.setInput('form', this.formGroup());
+          if (key === 'formControlName') {
+            formControlName = value() as string;
+            const control = this.formGroup()?.get(value() as string);
+            const instance = ref.instance;
+            if (!control) {
+              throw new Error(
+                `FormControl by name ${value() as string} not found in form`
+              );
+            }
+            if (instance.registerOnChange) {
+              control?.valueChanges.subscribe((v) => instance.writeValue(v));
+              instance.registerOnChange((v: any) => control?.setValue(v));
+              instance.registerOnTouched(() => control?.markAsTouched());
+            }
+
+            if (instance.setDisabledState) {
+              control.statusChanges.subscribe(() => {
+                instance.setDisabledState?.(control.disabled);
+              });
+            }
+          } else {
+            ref.setInput(key, value());
           }
         }
       }
@@ -297,7 +332,7 @@ export class FormUI implements AfterViewInit {
 
       this.formComponentRefs.update((prev) => [
         ...prev,
-        { ref, formControlName: ref.instance.formControlName?.() },
+        { ref, formControlName },
       ]);
     });
   }
@@ -310,7 +345,7 @@ export class FormUI implements AfterViewInit {
 
   protected onSubmit() {
     const formGroup = this.formGroup()!;
-    const errors: any = {};
+    const errors: any = { ...formGroup.errors };
     Object.keys(formGroup.controls).forEach((key) => {
       const controlErrors = formGroup.get(key)?.errors;
       if (controlErrors) {

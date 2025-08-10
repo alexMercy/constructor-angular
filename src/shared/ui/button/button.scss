@@ -1,8 +1,8 @@
 .button-base {
   border: none;
   border-radius: 10px;
-  width: 100px;
-  height: 30px;
+  min-width: 100px;
+  min-height: 30px;
   padding: 5px;
   cursor: pointer;
 }
