@@ -9,10 +9,10 @@ import {
   selector: 'app-input',
   imports: [ReactiveFormsModule],
   template: `
-    <div>
+    <div style="display: flex; flex-direction: column; gap: 4px;">
       <label>{{ label() }}</label>
       <input
-        style="width: 100px;"
+        style="width: 200px;"
         [type]="type()"
         [min]="min()"
         [max]="max()"

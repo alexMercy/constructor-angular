@@ -1,3 +1,4 @@
+import { NgStyle } from '@angular/common';
 import {
   AfterViewInit,
   Binding,
@@ -42,12 +43,15 @@ interface Field {
 
 @Component({
   selector: 'app-form',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, NgStyle],
   template: `
     @let _form = formGroup(); @if(_form) {
-    <form (ngSubmit)="onSubmit()" [formGroup]="_form">
+    <form (ngSubmit)="onSubmit()" [formGroup]="_form" [ngStyle]="style()">
+      <a>form</a>
       <ng-template #vcr />
+      <a>form end</a>
     </form>
+
     }
   `,
 })
@@ -62,6 +66,7 @@ export class FormUI implements AfterViewInit, OnDestroy {
   //#region INPUTS
   public fields = input<Field[]>();
   public components = input<any[]>();
+  public style = input({});
   //#endregion
 
   //#region OUTPUTS
@@ -332,11 +337,6 @@ export class FormUI implements AfterViewInit, OnDestroy {
   private refsEffect = effect(() => {
     const refsList = this.refsStorage.refsList();
     console.log(refsList);
-
-    if (refsList.length) {
-      const minAgeRef = refsList.find((item) => item.title === 'maxAge')!.ref;
-      console.log(minAgeRef.injector.get(FORM_CONTROL_NAME_TOKEN, null));
-    }
   });
   //#endregion
 

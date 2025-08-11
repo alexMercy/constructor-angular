@@ -95,6 +95,14 @@ const mockData2: mockI[] = [
     component: 'FormUI',
     title: 'form',
     inputs: {
+      style: {
+        display: 'flex',
+        'flex-direction': 'column',
+        gap: '12px',
+        'background-color': 'color(srgb 0.972549 0.980392 0.988235)',
+        'border-radius': '14px',
+        padding: '17.5px',
+      },
       fields: [
         {
           name: 'age',
@@ -145,7 +153,12 @@ const mockData2: mockI[] = [
           component: 'Container',
           title: 'minAgeContainer',
           inputs: {
-            styles: { border: '1px solid green' },
+            styles: {
+              gap: '12px',
+              'background-color': 'color(srgb 0.9 0.9 0.9)',
+              'border-radius': '14px',
+              padding: '17.5px',
+            },
             styleClass: 'aboba',
             components: [
               {
@@ -180,32 +193,48 @@ const mockData2: mockI[] = [
           },
         },
         {
-          component: 'ButtonUI',
-          title: 'submitButton',
+          component: 'Container',
+          title: 'buttonsContainer',
           inputs: {
-            label: 'Submit',
-          },
-        },
-        {
-          component: 'ButtonUI',
-          title: 'DisableEnableMinAge',
-          inputs: {
-            label: 'Disable/Enable minAge',
-            type: 'button',
-          },
-          outputs: {
-            click: 'toggleField minAge',
-          },
-        },
-        {
-          component: 'ButtonUI',
-          title: 'DisableEnableMaxAge',
-          inputs: {
-            label: 'Disable/Enable maxAge',
-            type: 'button',
-          },
-          outputs: {
-            click: 'toggleField maxAge',
+            styles: {
+              display: 'flex',
+              gap: '12px',
+              'background-color': 'color(srgb 0.95 0.95 0.95)',
+              'border-radius': '14px',
+              padding: '17.5px',
+            },
+            components: [
+              {
+                component: 'ButtonUI',
+                title: 'submitButton',
+                inputs: {
+                  label: 'Submit',
+                  type: 'submit',
+                },
+              },
+              {
+                component: 'ButtonUI',
+                title: 'DisableEnableMinAge',
+                inputs: {
+                  label: 'Disable/Enable minAge',
+                  type: 'button',
+                },
+                outputs: {
+                  click: 'toggleField minAge',
+                },
+              },
+              {
+                component: 'ButtonUI',
+                title: 'DisableEnableMaxAge',
+                inputs: {
+                  label: 'Disable/Enable maxAge',
+                  type: 'button',
+                },
+                outputs: {
+                  click: 'toggleField maxAge',
+                },
+              },
+            ],
           },
         },
       ],
